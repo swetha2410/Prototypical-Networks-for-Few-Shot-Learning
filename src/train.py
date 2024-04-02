@@ -52,12 +52,12 @@ def init_dataloader(opt, mode):
     return dataloader
 
 
-def init_protonet(opt):
+def init_protonet(opt,fc_dim):
     '''
     Initialize the ProtoNet
     '''
     device = 'cuda:0' if torch.cuda.is_available() and opt.cuda else 'cpu'
-    model = ProtoNet().to(device)
+    model = ProtoNet(fc_dim=fc_dim).to(device)
     return model
 
 
@@ -84,7 +84,7 @@ def save_list_to_file(path, thelist):
             f.write("%s\n" % item)
 
 
-def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
+def train(opt, tr_dataloader, model, optim, lr_scheduler,fc_dim, val_dataloader=None ):
     '''
     Train the model with the prototypical learning algorithm
     '''
@@ -124,7 +124,7 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler, val_dataloader=None):
         if val_dataloader is None:
             continue
         val_iter = iter(val_dataloader)
-        model.eval()
+        model.eval(fc_dim)
         for batch in val_iter:
             x, y = batch
             x, y = x.to(device), y.to(device)
@@ -174,7 +174,7 @@ def test(opt, test_dataloader, model):
     return avg_acc
 
 
-def eval(opt):
+def eval(opt,fc_dim):
     '''
     Initialize everything and train
     '''
@@ -185,7 +185,7 @@ def eval(opt):
 
     init_seed(options)
     test_dataloader = init_dataset(options)[-1]
-    model = init_protonet(options)
+    model = init_protonet(options,fc_dim)
     model_path = os.path.join(opt.experiment_root, 'best_model.pth')
     model.load_state_dict(torch.load(model_path))
 
@@ -193,6 +193,33 @@ def eval(opt):
          test_dataloader=test_dataloader,
          model=model)
 
+
+#new to train and compare
+def train_and_compare(opt, tr_dataloader, val_dataloader, models):
+    '''
+    Train each model and compare their performance
+    '''
+    best_models = []
+    best_accuracies = []
+
+    for model in models:
+        optim = init_optim(opt, model)
+        lr_scheduler = init_lr_scheduler(opt, optim)
+        res = train(opt=opt,
+                    tr_dataloader=tr_dataloader,
+                    val_dataloader=val_dataloader,
+                    model=model,
+                    optim=optim,
+                    lr_scheduler=lr_scheduler)
+        _, best_acc, _, _, _, _ = res
+        best_models.append(model)
+        best_accuracies.append(best_acc)
+
+    best_model_index = np.argmax(best_accuracies)
+    best_model = best_models[best_model_index]
+    best_accuracy = best_accuracies[best_model_index]
+
+    return best_model, best_accuracy
 
 def main():
     '''
@@ -211,27 +238,53 @@ def main():
     val_dataloader = init_dataloader(options, 'val')
     # trainval_dataloader = init_dataloader(options, 'trainval')
     test_dataloader = init_dataloader(options, 'test')
+    fc_dims = [64, 128, 256, 512] #new
+    for fc_dim in fc_dims:
+        print(f'Training with fc_dim={fc_dim}')
+        model = init_protonet(options, fc_dim)
+        optim = init_optim(options, model)
+        lr_scheduler = init_lr_scheduler(options, optim)
+        res = train(opt=options,
+                    tr_dataloader=tr_dataloader,
+                    val_dataloader=val_dataloader,
+                    model=model,
+                    optim=optim,
+                    lr_scheduler=lr_scheduler,
+                    fc_dim =fc_dim)
+        best_state, best_acc, train_loss, train_acc, val_loss, val_acc = res
+        print('Testing with last model..')
+        test(opt=options,
+             test_dataloader=test_dataloader,
+             model=model)
 
-    model = init_protonet(options)
-    optim = init_optim(options, model)
-    lr_scheduler = init_lr_scheduler(options, optim)
-    res = train(opt=options,
-                tr_dataloader=tr_dataloader,
-                val_dataloader=val_dataloader,
-                model=model,
-                optim=optim,
-                lr_scheduler=lr_scheduler)
-    best_state, best_acc, train_loss, train_acc, val_loss, val_acc = res
-    print('Testing with last model..')
-    test(opt=options,
-         test_dataloader=test_dataloader,
-         model=model)
+        model.load_state_dict(best_state)
+        print('Testing with best model..')
+        test(opt=options,
+             test_dataloader=test_dataloader,
+             model=model)
 
-    model.load_state_dict(best_state)
-    print('Testing with best model..')
-    test(opt=options,
-         test_dataloader=test_dataloader,
-         model=model)
+   # model = init_protonet(options)
+
+
+    # optim = init_optim(options, model)
+    # lr_scheduler = init_lr_scheduler(options, optim)
+    # res = train(opt=options,
+    #             tr_dataloader=tr_dataloader,
+    #             val_dataloader=val_dataloader,
+    #             model=model,
+    #             optim=optim,
+    #             lr_scheduler=lr_scheduler)
+    # best_state, best_acc, train_loss, train_acc, val_loss, val_acc = res
+    # print('Testing with last model..')
+    # test(opt=options,
+    #      test_dataloader=test_dataloader,
+    #      model=model)
+    #
+    # model.load_state_dict(best_state)
+    # print('Testing with best model..')
+    # test(opt=options,
+    #      test_dataloader=test_dataloader,
+    #      model=model)
 
     # optim = init_optim(options, model)
     # lr_scheduler = init_lr_scheduler(options, optim)
