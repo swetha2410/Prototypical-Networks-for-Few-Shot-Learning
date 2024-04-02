@@ -124,7 +124,7 @@ def train(opt, tr_dataloader, model, optim, lr_scheduler,fc_dim, val_dataloader=
         if val_dataloader is None:
             continue
         val_iter = iter(val_dataloader)
-        model.eval(fc_dim)
+        model.eval()
         for batch in val_iter:
             x, y = batch
             x, y = x.to(device), y.to(device)
@@ -174,7 +174,7 @@ def test(opt, test_dataloader, model):
     return avg_acc
 
 
-def eval(opt,fc_dim):
+def eval(opt):
     '''
     Initialize everything and train
     '''
@@ -185,7 +185,7 @@ def eval(opt,fc_dim):
 
     init_seed(options)
     test_dataloader = init_dataset(options)[-1]
-    model = init_protonet(options,fc_dim)
+    model = init_protonet(options,128)
     model_path = os.path.join(opt.experiment_root, 'best_model.pth')
     model.load_state_dict(torch.load(model_path))
 
