@@ -33,6 +33,22 @@ def euclidean_dist(x, y):
 
     return torch.pow(x - y, 2).sum(2)
 
+def manhattan_dist(x, y):
+    '''
+    Compute manhattan distance between two tensors
+    '''
+    # x: N x D
+    # y: M x D
+    n = x.size(0)
+    m = y.size(0)
+    d = x.size(1)
+    if d != y.size(1):
+        raise Exception
+
+    x = x.unsqueeze(1).expand(n, m, d)
+    y = y.unsqueeze(0).expand(n, m, d)
+
+    return torch.abs(x - y).sum(2)
 
 def prototypical_loss(input, target, n_support):
     '''
@@ -71,7 +87,8 @@ def prototypical_loss(input, target, n_support):
     query_idxs = torch.stack(list(map(lambda c: target_cpu.eq(c).nonzero()[n_support:], classes))).view(-1)
 
     query_samples = input.to('cpu')[query_idxs]
-    dists = euclidean_dist(query_samples, prototypes)
+    #dists = euclidean_dist(query_samples, prototypes)
+    dists = manhattan_dist(query_samples,prototypes)
 
     log_p_y = F.log_softmax(-dists, dim=1).view(n_classes, n_query, -1)
 
