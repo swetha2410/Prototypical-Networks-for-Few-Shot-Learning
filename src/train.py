@@ -238,7 +238,7 @@ def main():
     val_dataloader = init_dataloader(options, 'val')
     # trainval_dataloader = init_dataloader(options, 'trainval')
     test_dataloader = init_dataloader(options, 'test')
-    fc_dims = [0, 8, 16, 32, 64, 128, 256, 512] #new
+    fc_dims = [0, 8, 16, 32, 64, 128, 256, 512, 1024] #new
     for fc_dim in fc_dims:
         print(f'Training with fc_dim={fc_dim}')
         model = init_protonet(options, fc_dim)
